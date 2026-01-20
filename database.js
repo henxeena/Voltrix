@@ -3,8 +3,9 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 // Tentukan lokasi file database
-const dbPath = path.join(__dirname, 'todos.db');
-
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? '/data/todos.db'
+  : path.join(__dirname, 'todos.db');
 // Buat koneksi database
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
