@@ -1,4 +1,3 @@
-// index.js
 const express = require('express');
 const db = require('./database'); // Import database
 
@@ -7,47 +6,36 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// GET / - Root endpoint
 app.get('/', (req, res) => {
     res.send('API Todo List dengan Database SQLite berjalan!');
 });
 
-// GET /todos - Ambil semua todo
-// GET /todos - Ambil semua todo dengan filter, pencarian, dan pagination
 app.get('/todos', (req, res) => {
-    // Ambil parameter query
     const { search, completed, page = 1, limit = 10 } = req.query;
     
-    // Bangun kondisi WHERE dinamis
     let conditions = [];
     let params = [];
     
-    // 1. Filter pencarian (search)
     if (search) {
         conditions.push('task LIKE ?');
         params.push(`%${search}%`);
     }
     
-    // 2. Filter status (completed)
     if (completed !== undefined) {
         conditions.push('completed = ?');
         params.push(completed === 'true' ? 1 : 0);
     }
     
-    // Gabungkan kondisi WHERE
     const whereClause = conditions.length > 0 
         ? 'WHERE ' + conditions.join(' AND ') 
         : '';
     
-    // 3. Pagination
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
     
-    // Query untuk menghitung TOTAL data (untuk info pagination)
     const countSql = `SELECT COUNT(*) as total FROM todos ${whereClause}`;
     
-    // Query untuk mengambil data dengan pagination
     const dataSql = `
         SELECT * FROM todos 
         ${whereClause}
@@ -55,7 +43,6 @@ app.get('/todos', (req, res) => {
         LIMIT ? OFFSET ?
     `;
     
-    // Eksekusi query COUNT terlebih dahulu
     db.get(countSql, params, (err, countResult) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -64,15 +51,12 @@ app.get('/todos', (req, res) => {
         const total = countResult.total;
         const totalPages = Math.ceil(total / limitNum);
         
-        // Jika halaman melebihi total halaman yang ada
         if (pageNum > totalPages && total > 0) {
             return res.status(400).json({ 
                 error: `Halaman ${pageNum} tidak tersedia. Total halaman: ${totalPages}` 
             });
         }
-        
-        // Eksekusi query data dengan pagination
-        // Tambahkan parameter limit dan offset ke array params
+ 
         const dataParams = [...params, limitNum, offset];
         
         db.all(dataSql, dataParams, (err, rows) => {
@@ -80,7 +64,6 @@ app.get('/todos', (req, res) => {
                 return res.status(500).json({ error: err.message });
             }
             
-            // Response dengan struktur yang informatif
             res.json({
                 success: true,
                 data: rows,
@@ -100,7 +83,7 @@ app.get('/todos', (req, res) => {
         });
     });
 });
-// GET /todos/:id - Ambil todo spesifik
+
 app.get('/todos/:id', (req, res) => {
     const sql = 'SELECT * FROM todos WHERE id = ?';
     db.get(sql, [req.params.id], (err, row) => {
@@ -114,7 +97,6 @@ app.get('/todos/:id', (req, res) => {
     });
 });
 
-// POST /todos - Buat todo baru
 app.post('/todos', (req, res) => {
     if (!req.body.task || req.body.task.trim() === '') {
         return res.status(400).json({ error: 'Task tidak boleh kosong' });
@@ -127,7 +109,6 @@ app.post('/todos', (req, res) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        // Mengambil data yang baru saja dibuat
         db.get('SELECT * FROM todos WHERE id = ?', [this.lastID], (err, row) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
@@ -137,14 +118,11 @@ app.post('/todos', (req, res) => {
     });
 });
 
-// PUT /todos/:id - Update todo
 app.put('/todos/:id', (req, res) => {
-    // Validasi input
     if (req.body.task === undefined && req.body.completed === undefined) {
         return res.status(400).json({ error: 'Minimal berikan task atau completed untuk diupdate' });
     }
 
-    // Bangun query dinamis
     let updates = [];
     let params = [];
     
@@ -173,7 +151,6 @@ app.put('/todos/:id', (req, res) => {
             return res.status(404).json({ error: 'Todo tidak ditemukan' });
         }
         
-        // Ambil data yang sudah diupdate
         db.get('SELECT * FROM todos WHERE id = ?', [req.params.id], (err, row) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
@@ -183,9 +160,7 @@ app.put('/todos/:id', (req, res) => {
     });
 });
 
-// DELETE /todos/:id - Hapus todo
 app.delete('/todos/:id', (req, res) => {
-    // Ambil data sebelum dihapus
     db.get('SELECT * FROM todos WHERE id = ?', [req.params.id], (err, row) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -194,7 +169,6 @@ app.delete('/todos/:id', (req, res) => {
             return res.status(404).json({ error: 'Todo tidak ditemukan' });
         }
         
-        // Hapus data
         db.run('DELETE FROM todos WHERE id = ?', [req.params.id], function(err) {
             if (err) {
                 return res.status(500).json({ error: err.message });
@@ -207,18 +181,15 @@ app.delete('/todos/:id', (req, res) => {
     });
 });
 
-// 404 handler
 app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint tidak ditemukan' });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: 'Terjadi kesalahan internal server' });
 });
 
-// Jalankan server
 app.listen(PORT, () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
     console.log(`💾 Database: todos.db`);
